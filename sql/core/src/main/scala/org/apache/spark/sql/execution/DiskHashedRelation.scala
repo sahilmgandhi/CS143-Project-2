@@ -80,13 +80,13 @@ private[sql] class DiskPartition(
       throw new SparkException("The input is marked as being closed, and thus we cannot insert anything new in")
     }
 
-    if (this.measurePartitionSize() > this.blockSize) {
+    if (measurePartitionSize() > blockSize) {
       // overflow to disk since size of partition exceeds the blockSize
-      this.spillPartitionToDisk()
-      this.data.clear()   // clear the data after putting it onto the disk
+      spillPartitionToDisk()
+      data.clear()   // clear the data after putting it onto the disk
     }
 
-    this.data.add(row)
+    data.add(row)
   }
 
   /**
@@ -155,6 +155,14 @@ private[sql] class DiskPartition(
     */
   def closeInput() = {
     /* IMPLEMENT THIS METHOD */
+    if (!writtenToDisk){
+      // only if the data is of size larger than 0 do we want to write it to the disk and add that to the chunk sizes array
+      if (data.size() > 0){
+        spillPartitionToDisk()
+        data.clear()
+      }
+    }
+    outStream.close()
     inputClosed = true
   }
 
@@ -172,7 +180,7 @@ private[sql] object DiskHashedRelation {
 
   /**
     * Given an input iterator, partitions each row into one of a number of [[DiskPartition]]s
-    * and constructs a [[DiskHashedRelation]].
+    * and constructors a [[DiskHashedRelation]].
     *
     * This executes the first phase of external hashing -- using a course-grained hash function
     * to partition the tuples to disk.
