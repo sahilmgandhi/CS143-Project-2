@@ -48,7 +48,7 @@ private[sql] sealed trait DiskHashedRelation {
   *
   * @param partitions the disk partitions that we are going to spill to
   */
-protected [sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPartition])
+protected[sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPartition])
   extends DiskHashedRelation with Serializable {
 
   override def getIterator() = partitions.iterator
@@ -56,9 +56,9 @@ protected [sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPart
   override def closeAllPartitions() = partitions.foreach(_.closePartition())
 }
 
-private[sql] class DiskPartition (
-                                   filename: String,
-                                   blockSize: Int) {
+private[sql] class DiskPartition(
+                                  filename: String,
+                                  blockSize: Int) {
   private val path: Path = Files.createTempFile("", filename)
   private val data: JavaArrayList[Row] = new JavaArrayList[Row]
   private val outStream: OutputStream = Files.newOutputStream(path)
@@ -75,6 +75,18 @@ private[sql] class DiskPartition (
     */
   def insert(row: Row) = {
     /* IMPLEMENT THIS METHOD */
+
+    if (inputClosed) {
+      throw new SparkException("The input is marked as being closed, and thus we cannot insert anything new in")
+    }
+
+    if (this.measurePartitionSize() > this.blockSize) {
+      // overflow to disk since size of partition exceeds the blockSize
+      this.spillPartitionToDisk()
+      this.data.clear()   // clear the data after putting it onto the disk
+    }
+
+    this.data.add(row)
   }
 
   /**
@@ -168,17 +180,17 @@ private[sql] object DiskHashedRelation {
     * The block size is approximately set to 64k because that is a good estimate of the average
     * buffer page.
     *
-    * @param input the input [[Iterator]] of [[Row]]s
+    * @param input        the input [[Iterator]] of [[Row]]s
     * @param keyGenerator a [[Projection]] that generates the keys for the input
-    * @param size the number of [[DiskPartition]]s
-    * @param blockSize the threshold at which each partition will spill
+    * @param size         the number of [[DiskPartition]]s
+    * @param blockSize    the threshold at which each partition will spill
     * @return the constructed [[DiskHashedRelation]]
     */
-  def apply (
-              input: Iterator[Row],
-              keyGenerator: Projection,
-              size: Int = 64,
-              blockSize: Int = 64000) = {
+  def apply(
+             input: Iterator[Row],
+             keyGenerator: Projection,
+             size: Int = 64,
+             blockSize: Int = 64000) = {
     /* IMPLEMENT THIS METHOD */
     null
   }
