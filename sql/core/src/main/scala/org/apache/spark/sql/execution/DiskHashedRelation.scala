@@ -116,15 +116,9 @@ private[sql] class DiskPartition (
       val chunkSizeIterator: Iterator[Int] = chunkSizes.iterator().asScala
       var byteArray: Array[Byte] = null
 
-      override def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
-      }
+      override def next() = if (currentIterator.hasNext) currentIterator.next() else null
 
-      override def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
-      }
+      override def hasNext() = currentIterator.hasNext || fetchNextChunk() // Use OR short-circuiting
 
       /**
         * Fetches the next chunk of the file and updates the iterator. Should return true
