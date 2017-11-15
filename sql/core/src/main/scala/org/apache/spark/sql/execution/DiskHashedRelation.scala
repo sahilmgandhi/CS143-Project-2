@@ -172,7 +172,7 @@ private[sql] object DiskHashedRelation {
 
   /**
     * Given an input iterator, partitions each row into one of a number of [[DiskPartition]]s
-    * and constructors a [[DiskHashedRelation]].
+    * and constructs a [[DiskHashedRelation]].
     *
     * This executes the first phase of external hashing -- using a course-grained hash function
     * to partition the tuples to disk.
@@ -191,7 +191,10 @@ private[sql] object DiskHashedRelation {
              keyGenerator: Projection,
              size: Int = 64,
              blockSize: Int = 64000) = {
-    /* IMPLEMENT THIS METHOD */
-    null
+    val parts = new Array[DiskPartition](size)
+    parts.indices.foreach(i => parts(i) = new DiskPartition(i.toString, blockSize))
+    input.foreach(r => parts(keyGenerator(r).hashCode() % size).insert(r))
+    parts.foreach(_.closePartition())
+    new GeneralDiskHashedRelation(parts)
   }
 }
