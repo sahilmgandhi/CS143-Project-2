@@ -75,6 +75,11 @@ private[sql] class DiskPartition (
     */
   def insert(row: Row) = {
     /* IMPLEMENT THIS METHOD */
+
+    if (inputClosed){
+      throw new SparkException()
+    }
+
   }
 
   /**
