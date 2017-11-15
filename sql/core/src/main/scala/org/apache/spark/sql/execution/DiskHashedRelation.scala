@@ -80,13 +80,13 @@ private[sql] class DiskPartition(
       throw new SparkException("The input is marked as being closed, and thus we cannot insert anything new in")
     }
 
-    if (this.measurePartitionSize() > this.blockSize) {
+    if (measurePartitionSize() > blockSize) {
       // overflow to disk since size of partition exceeds the blockSize
-      this.spillPartitionToDisk()
-      this.data.clear()   // clear the data after putting it onto the disk
+      spillPartitionToDisk()
+      data.clear()   // clear the data after putting it onto the disk
     }
 
-    this.data.add(row)
+    data.add(row)
   }
 
   /**
@@ -154,6 +154,14 @@ private[sql] class DiskPartition(
     */
   def closeInput() = {
     /* IMPLEMENT THIS METHOD */
+    if (!writtenToDisk){
+      // only if the data is of size larger than 0 do we want to write it to the disk and add that to the chunk sizes array
+      if (data.size() > 0){
+        spillPartitionToDisk()
+        data.clear()
+      }
+    }
+    outStream.close()
     inputClosed = true
   }
 
