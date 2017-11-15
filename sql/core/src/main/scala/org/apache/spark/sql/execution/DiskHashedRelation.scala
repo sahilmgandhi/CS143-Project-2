@@ -87,6 +87,7 @@ private[sql] class DiskPartition(
     }
 
     data.add(row)
+    writtenToDisk = false
   }
 
   /**
@@ -140,7 +141,8 @@ private[sql] class DiskPartition(
         */
       private[this] def fetchNextChunk(): Boolean = {
         if (chunkSizeIterator.hasNext) {
-          CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray) != null // will be read into byteArray
+          byteArray = CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray) // will be read into byteArray
+          true
         } else false
       }
     }
