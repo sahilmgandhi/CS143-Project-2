@@ -81,7 +81,7 @@ object CS143Utils {
   }
 
   /**
-    * Reads the next nextChunkSize bytes from the input stream provided. If the previous array read into is availab
+    * Reads the next nextChunkSize bytes from the input stream provided. If the previous array read into is available
     * please provide it so as to avoid allocating new object unless absolutely necessary.
     *
     * @param inStream the input stream we are reading from

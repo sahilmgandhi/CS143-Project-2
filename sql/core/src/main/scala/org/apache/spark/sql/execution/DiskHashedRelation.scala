@@ -139,8 +139,9 @@ private[sql] class DiskPartition(
         * @return true unless the iterator is empty.
         */
       private[this] def fetchNextChunk(): Boolean = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        if (chunkSizeIterator.hasNext) {
+          CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray) != null // will be read into byteArray
+        } else false
       }
     }
   }
