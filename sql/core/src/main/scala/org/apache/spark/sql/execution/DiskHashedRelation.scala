@@ -51,7 +51,14 @@ private[sql] sealed trait DiskHashedRelation {
 protected[sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPartition])
   extends DiskHashedRelation with Serializable {
 
-  override def getIterator() = partitions.iterator
+  override def getIterator() = {
+    if (partitions.length > 0) {
+      partitions.iterator
+    }
+    else {
+      null
+    }
+  }
 
   override def closeAllPartitions() = partitions.foreach(_.closePartition())
 }
@@ -74,8 +81,6 @@ private[sql] class DiskPartition(
     * @param row the [[Row]] we are adding
     */
   def insert(row: Row) = {
-    /* IMPLEMENT THIS METHOD */
-
     if (inputClosed) {
       throw new SparkException("The input is marked as being closed, and thus we cannot insert anything new in")
     }
@@ -83,7 +88,7 @@ private[sql] class DiskPartition(
     if (measurePartitionSize() > blockSize) {
       // overflow to disk since size of partition exceeds the blockSize
       spillPartitionToDisk()
-      data.clear()   // clear the data after putting it onto the disk
+      data.clear() // clear the data after putting it onto the disk
     }
 
     data.add(row)
@@ -142,6 +147,7 @@ private[sql] class DiskPartition(
       private[this] def fetchNextChunk(): Boolean = {
         if (chunkSizeIterator.hasNext) {
           byteArray = CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray) // will be read into byteArray
+          currentIterator = CS143Utils.getListFromBytes(byteArray).iterator.asScala
           true
         } else false
       }
@@ -156,10 +162,9 @@ private[sql] class DiskPartition(
     * also be closed.
     */
   def closeInput() = {
-    /* IMPLEMENT THIS METHOD */
-    if (!writtenToDisk){
+    if (!writtenToDisk) {
       // only if the data is of size larger than 0 do we want to write it to the disk and add that to the chunk sizes array
-      if (data.size() > 0){
+      if (data.size() > 0) {
         spillPartitionToDisk()
         data.clear()
       }
