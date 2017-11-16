@@ -84,7 +84,7 @@ object CS143Utils {
     * Reads the next nextChunkSize bytes from the input stream provided. If the previous array read into is available
     * please provide it so as to avoid allocating new object unless absolutely necessary.
     *
-    * @param inStream the input stream we are reading from
+    * @param inStream      the input stream we are reading from
     * @param nextChunkSize the number of bytes to read
     * @param previousArray the previous array we read into
     * @return
@@ -114,6 +114,7 @@ object CS143Utils {
 
   /**
     * Mutable wrapper concatenating two rows.
+    *
     * @return
     */
   val rowsConcatenator = new JoinedRow
@@ -129,7 +130,17 @@ object CS143Utils {
     */
   def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
     /* IMPLEMENT THIS METHOD */
-    null
+    var currUdf: ScalaUdf = null
+
+    // by doing a for each, we assign currUdf to the last udf in the sequence of expressions!
+    expressions.foreach(i => {
+      if (i.isInstanceOf[ScalaUdf]){
+        currUdf = i.asInstanceOf[ScalaUdf]
+      }
+    })
+
+    // if no sequence of expressions, null is returned
+    currUdf
   }
 
   /**
@@ -177,7 +188,8 @@ object CS143Utils {
     * This method is called before a new value is added to the aggregation table. The idea is to
     * check if the size of the aggregation table is proper in case the new record will trigger the
     * expansion of the table.
-    * @param collection a map able to track its size
+    *
+    * @param collection    a map able to track its size
     * @param allowedMemory the maximum amount of memory allowed for the input collection
     * @return true if the addition of a new record will make the table grow beyond the allowed size
     */
@@ -202,11 +214,11 @@ object CachingIteratorGenerator {
     * there are any other UDFs in the expression lists, then they can and should be evaluated
     * without any caching.
     *
-    * @param cacheKeys the keys on which we will cache -- the inputs to the UDF
-    * @param udf the udf we are caching for
-    * @param preUdfExpressions the expressions that come before the UDF in the projection
+    * @param cacheKeys          the keys on which we will cache -- the inputs to the UDF
+    * @param udf                the udf we are caching for
+    * @param preUdfExpressions  the expressions that come before the UDF in the projection
     * @param postUdfExpressions the expressions that come after the UDF in the projection
-    * @param inputSchema the schema of the rows -- useful for creating projections
+    * @param inputSchema        the schema of the rows -- useful for creating projections
     * @return
     */
   def apply(
@@ -224,13 +236,34 @@ object CachingIteratorGenerator {
       val cache: JavaHashMap[Row, Row] = new JavaHashMap[Row, Row]()
 
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        input.hasNext
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        if (input.hasNext) {
+          // we have pre and post udf expressions, so return is the pre + curr + post expressions
+          val currRow = input.next()
+          val preUdfs = preUdfProjection.apply(currRow)
+          val postUdfs = postUdfProjection.apply(currRow)
+          val currCacheKey = cacheKeyProjection.apply(currRow)
+
+          val currUdf = {
+            // if cache contains the key, we just return the object
+            if (cache.containsKey(currCacheKey)) {
+              cache.get(currCacheKey)
+            }
+            else { // else we want to cache the current key and the row and return it
+              val cUdf = udfProject.apply(currRow)
+              cache.put(currCacheKey, cUdf)
+              cUdf
+            }
+          }
+          // return the pre + curr + post
+          Row.fromSeq(preUdfs ++ currUdf ++ postUdfs)
+        }
+        else { // no more rows to read, so we are done
+          null
+        }
       }
     }
   }

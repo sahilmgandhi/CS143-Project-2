@@ -98,17 +98,41 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
     // This is the key generator for the course-grained external hashing.
     val keyGenerator = CS143Utils.getNewProjection(projectList, child.output)
 
-    /* IMPLEMENT THIS METHOD */
+    // New row iterator to be used
+    var currIterator: Iterator[Row] = null
+
+    // Partitioning the input
+    var diskPartition: DiskPartition = null
+    val diskPartitionIterator = DiskHashedRelation(input, keyGenerator).getIterator()
+
+    // generate caching iterator returns a function that takes a row and transforms it to another row
+    var currCacheIterator: (Iterator[Row] => Iterator[Row]) = null
 
     new Iterator[Row] {
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+
+        // fetch the first partition if currIterator is null
+        if (currIterator == null) {
+          fetchNextPartition()
+        }
+        else {
+          // Either use the next row, or the next partition if no more rows
+          if (currIterator.hasNext) {
+            true
+          }
+          else {
+            fetchNextPartition()
+          }
+        }
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        if (currIterator.hasNext) {
+          currIterator.next()
+        }
+        else {
+          null
+        }
       }
 
       /**
@@ -117,9 +141,23 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
         *
         * @return
         */
-      private def fetchNextPartition(): Boolean  = {
-        /* IMPLEMENT THIS METHOD */
-        false
+      private def fetchNextPartition(): Boolean = {
+        if (diskPartitionIterator.hasNext) {
+          diskPartition = diskPartitionIterator.next()
+          currCacheIterator = CS143Utils.generateCachingIterator(projectList, child.output)
+
+          // get the current data iterator based on the cache's diskPartition
+          currIterator = currCacheIterator(diskPartition.getData())
+          if (currIterator.hasNext) {
+            true
+          }
+          else {
+            fetchNextPartition()
+          }
+        }
+        else { // if there are no more partitions, then return false
+          false
+        }
       }
     }
   }
@@ -145,8 +183,7 @@ case class Filter(condition: Expression, child: SparkPlan) extends UnaryNode {
   */
 @DeveloperApi
 case class Sample(fraction: Double, withReplacement: Boolean, seed: Long, child: SparkPlan)
-  extends UnaryNode
-{
+  extends UnaryNode {
   override def output = child.output
 
   // TODO: How to pick seed?
@@ -160,6 +197,7 @@ case class Sample(fraction: Double, withReplacement: Boolean, seed: Long, child:
 case class Union(children: Seq[SparkPlan]) extends SparkPlan {
   // TODO: attributes output by union should be distinct for nullability purposes
   override def output = children.head.output
+
   override def execute() = sparkContext.union(children.map(_.execute()))
 }
 
@@ -181,6 +219,7 @@ case class Limit(limit: Int, child: SparkPlan)
   private def sortBasedShuffleOn = SparkEnv.get.shuffleManager.isInstanceOf[SortShuffleManager]
 
   override def output = child.output
+
   override def outputPartitioning = SinglePartition
 
   /**
@@ -212,7 +251,7 @@ case class Limit(limit: Int, child: SparkPlan)
           numPartsToTry = (1.5 * limit * partsScanned / buf.size).toInt
         }
       }
-      numPartsToTry = math.max(0, numPartsToTry)  // guard against negative num of partitions
+      numPartsToTry = math.max(0, numPartsToTry) // guard against negative num of partitions
 
       val left = limit - buf.size
       val p = partsScanned until math.min(partsScanned + numPartsToTry, totalParts)
@@ -255,6 +294,7 @@ case class Limit(limit: Int, child: SparkPlan)
 case class TakeOrdered(limit: Int, sortOrder: Seq[SortOrder], child: SparkPlan) extends UnaryNode {
 
   override def output = child.output
+
   override def outputPartitioning = SinglePartition
 
   val ord = new RowOrdering(sortOrder, child.output)
@@ -271,6 +311,7 @@ case class TakeOrdered(limit: Int, sortOrder: Seq[SortOrder], child: SparkPlan) 
 /**
   * :: DeveloperApi ::
   * Performs a sort on-heap.
+  *
   * @param global when true performs a global sort of all partitions by shuffling the data first
   *               if necessary.
   */
@@ -284,7 +325,7 @@ case class Sort(
     if (global) OrderedDistribution(sortOrder) :: Nil else UnspecifiedDistribution :: Nil
 
   override def execute() = attachTree(this, "sort") {
-    child.execute().mapPartitions( { iterator =>
+    child.execute().mapPartitions({ iterator =>
       val ordering = newOrdering(sortOrder, child.output)
       iterator.map(_.copy()).toArray.sorted(ordering).iterator
     }, preservesPartitioning = true)
@@ -296,6 +337,7 @@ case class Sort(
 /**
   * :: DeveloperApi ::
   * Performs a sort, spilling to disk as needed.
+  *
   * @param global when true performs a global sort of all partitions by shuffling the data first
   *               if necessary.
   */
@@ -309,7 +351,7 @@ case class ExternalSort(
     if (global) OrderedDistribution(sortOrder) :: Nil else UnspecifiedDistribution :: Nil
 
   override def execute() = attachTree(this, "sort") {
-    child.execute().mapPartitions( { iterator =>
+    child.execute().mapPartitions({ iterator =>
       val ordering = newOrdering(sortOrder, child.output)
       val sorter = new ExternalSorter[Row, Null, Row](ordering = Some(ordering))
       sorter.insertAll(iterator.map(r => (r, null)))
@@ -323,9 +365,10 @@ case class ExternalSort(
 /**
   * :: DeveloperApi ::
   * Computes the set of distinct input rows using a HashSet.
+  *
   * @param partial when true the distinct operation is performed partially, per partition, without
   *                shuffling the data.
-  * @param child the input query plan.
+  * @param child   the input query plan.
   */
 @DeveloperApi
 case class Distinct(partial: Boolean, child: SparkPlan) extends UnaryNode {
@@ -389,5 +432,6 @@ case class Intersect(left: SparkPlan, right: SparkPlan) extends BinaryNode {
 @DeveloperApi
 case class OutputFaker(output: Seq[Attribute], child: SparkPlan) extends SparkPlan {
   def children = child :: Nil
+
   def execute() = child.execute()
 }
