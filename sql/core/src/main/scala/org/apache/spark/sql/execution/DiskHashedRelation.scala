@@ -209,7 +209,7 @@ private[sql] object DiskHashedRelation {
     val parts = new Array[DiskPartition](size)
     parts.indices.foreach(i => parts(i) = new DiskPartition(i.toString, blockSize))
     input.foreach(r => parts(keyGenerator(r).hashCode() % size).insert(r))
-    parts.foreach(_.closePartition())
+    parts.foreach(_.closeInput())
     new GeneralDiskHashedRelation(parts)
   }
 }
