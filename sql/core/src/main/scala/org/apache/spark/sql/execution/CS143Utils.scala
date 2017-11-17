@@ -129,12 +129,11 @@ object CS143Utils {
     * @return
     */
   def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
-    /* IMPLEMENT THIS METHOD */
     var currUdf: ScalaUdf = null
 
     // by doing a for each, we assign currUdf to the last udf in the sequence of expressions!
     expressions.foreach(i => {
-      if (i.isInstanceOf[ScalaUdf]){
+      if (i.isInstanceOf[ScalaUdf]) {
         currUdf = i.asInstanceOf[ScalaUdf]
       }
     })
