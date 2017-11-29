@@ -51,14 +51,7 @@ private[sql] sealed trait DiskHashedRelation {
 protected[sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPartition])
   extends DiskHashedRelation with Serializable {
 
-  override def getIterator() = {
-    if (partitions.length > 0) {
-      partitions.iterator
-    }
-    else {
-      null
-    }
-  }
+  override def getIterator() = if (partitions.length > 0) partitions.iterator else null
 
   override def closeAllPartitions() = partitions.foreach(_.closePartition())
 }

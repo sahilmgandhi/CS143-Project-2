@@ -18,7 +18,7 @@
 package org.apache.spark.sql.execution
 
 import java.io._
-import java.util.{ArrayList => JavaArrayList, HashMap => JavaHashMap}
+import java.util.{NoSuchElementException, ArrayList => JavaArrayList, HashMap => JavaHashMap}
 
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.util.collection.{SizeTrackingAppendOnlyMap, SizeTrackingPairCollection}
@@ -128,19 +128,7 @@ object CS143Utils {
     * @param expressions
     * @return
     */
-  def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
-    var currUdf: ScalaUdf = null
-
-    // by doing a for each, we assign currUdf to the last udf in the sequence of expressions!
-    expressions.foreach(i => {
-      if (i.isInstanceOf[ScalaUdf]) {
-        currUdf = i.asInstanceOf[ScalaUdf]
-      }
-    })
-
-    // if no sequence of expressions, null is returned
-    currUdf
-  }
+  def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = expressions.filter(_.isInstanceOf[ScalaUdf]).lastOption.orNull.asInstanceOf[ScalaUdf]
 
   /**
     * This function takes a sequence of expressions. If there is no UDF in the sequence of expressions, it does
