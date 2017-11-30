@@ -113,9 +113,10 @@ case class SpillableAggregate(
     var currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
     var data = input
 
-    def initSpills(): Array[DiskPartition] = (0 until numPartitions).map(i => new DiskPartition(i.toString, 0)).toArray
+    def initSpills() = (0 until numPartitions).map(i => new DiskPartition(i.toString, 0)).toArray
 
     val spills = initSpills()
+    val spillsIterator = spills.iterator
 
     new Iterator[Row] {
       /**
@@ -128,7 +129,7 @@ case class SpillableAggregate(
       var diskHashedRelation: Option[DiskHashedRelation] = None
       var aggregateResult: Iterator[Row] = aggregate()
 
-      def hasNext() = aggregateResult.hasNext || fetchSpill()
+      def hasNext() = aggregateResult.hasNext || fetchSpill() // OR short-circuiting
 
       def next() = aggregateResult.next
 
@@ -139,19 +140,19 @@ case class SpillableAggregate(
         */
       private def aggregate(): Iterator[Row] = {
         for (row <- data) {
-          val groupProjection = groupingProjection(row)
-          var aggregatorFunction = currentAggregationTable(groupProjection)
-          if (aggregatorFunction == null) {
+          val projection = groupingProjection(row)
+          var aggFunc = currentAggregationTable(projection)
+          if (aggFunc == null) {
             if (CS143Utils.maybeSpill(currentAggregationTable, memorySize)) {
-              spillRecord(groupProjection, row)
+              spillRecord(projection, row)
             } else {
-              aggregatorFunction = newAggregatorInstance()
-              currentAggregationTable.update(groupProjection, aggregatorFunction)
+              aggFunc = newAggregatorInstance()
+              currentAggregationTable.update(projection.copy(), aggFunc)
             }
           }
 
-          if (aggregatorFunction != null) {
-            aggregatorFunction.update(row)
+          if (aggFunc != null) {
+            aggFunc.update(row)
           }
         }
 
@@ -165,7 +166,7 @@ case class SpillableAggregate(
         * @return
         */
       private def spillRecord(group: Row, row: Row) = {
-        spills(group.hashCode() % numPartitions).insert(row)
+        spills(group.hashCode % numPartitions).insert(row)
       }
 
       /**
@@ -175,7 +176,13 @@ case class SpillableAggregate(
         * @return
         */
       private def fetchSpill(): Boolean = {
-        data = spills.iterator.map(_.getData()).filter(!_.hasNext).toStream.headOption.orNull
+//        data = spillsIterator.map(_.getData()).filter(!_.hasNext).toStream.headOption.orNull
+
+        // data was drained, replenish it with spilled data
+        while (spillsIterator.hasNext && !data.hasNext) {
+          data = spillsIterator.next().getData()
+        }
+
         val hadNext = data.hasNext
         if (hadNext) {
           currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
