@@ -143,11 +143,12 @@ case class SpillableAggregate(
           val projection = groupingProjection(row)
           var aggFunc = currentAggregationTable(projection)
           if (aggFunc == null) {
+            // Check if we'll run out of memory
             if (CS143Utils.maybeSpill(currentAggregationTable, memorySize)) {
-              spillRecord(projection, row)
+              spillRecord(projection, row) // And if so, spill the data
             } else {
               aggFunc = newAggregatorInstance()
-              currentAggregationTable.update(projection.copy(), aggFunc)
+              currentAggregationTable.update(projection, aggFunc)
             }
           }
 
@@ -156,7 +157,7 @@ case class SpillableAggregate(
           }
         }
 
-        spills.foreach(_.closeInput())
+        spills.foreach(_.closeInput()) // close all inputs                                    v get the second value of the tuple
         AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2))(currentAggregationTable.iterator)
       }
 
@@ -183,7 +184,7 @@ case class SpillableAggregate(
           data = spillsIterator.next().getData()
         }
 
-        val hadNext = data.hasNext
+        val hadNext = data.hasNext // save value for return
         if (hadNext) {
           currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
           aggregateResult = aggregate()
