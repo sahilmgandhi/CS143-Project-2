@@ -20,7 +20,7 @@ package org.apache.spark.sql.execution
 import java.io._
 import java.util.{NoSuchElementException, ArrayList => JavaArrayList, HashMap => JavaHashMap}
 
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.{GenericMutableRow, _}
 import org.apache.spark.util.collection.{SizeTrackingAppendOnlyMap, SizeTrackingPairCollection}
 
 object CS143Utils {
@@ -265,20 +265,17 @@ object CachingIteratorGenerator {
   * @return
   */
 object AggregateIteratorGenerator {
-  def apply(resultExpressions: Seq[Expression],
-            inputSchema: Seq[Attribute]): (Iterator[(Row, AggregateFunction)] => Iterator[Row]) = input => {
+  def apply(resultExpressions: Seq[Expression], inputSchema: Seq[Attribute]): (Iterator[(Row, AggregateFunction)] => Iterator[Row]) = input => {
 
     new Iterator[Row] {
-      val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema)
+      private val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema)
 
-      def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
-      }
+      def hasNext() = input.hasNext
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        val (row, aggFunc) = input.next
+        val newRow = new GenericMutableRow(Array(aggFunc.eval()))
+        postAggregateProjection(new JoinedRow(newRow, row))
       }
     }
   }
