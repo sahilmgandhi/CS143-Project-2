@@ -166,7 +166,7 @@ case class SpillableAggregate(
         * @return
         */
       private def spillRecord(group: Row, row: Row) = {
-        spills(group.hashCode % numPartitions).insert(row)
+        spills(row.hashCode % numPartitions).insert(row)
       }
 
       /**
