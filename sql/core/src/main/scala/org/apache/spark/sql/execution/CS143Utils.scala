@@ -222,19 +222,17 @@ object CachingIteratorGenerator {
       val postUdfProjection = CS143Utils.getNewProjection(postUdfExpressions, inputSchema)
       val cache: JavaHashMap[Row, Row] = new JavaHashMap[Row, Row]()
 
-      def hasNext() = {
-        input.hasNext
-      }
+      def hasNext() = input.hasNext
 
       def next() = {
-        if (input.hasNext) {
+        if (hasNext()) {
           // we have pre and post udf expressions, so return is the pre + curr + post expressions
           val currRow = input.next()
           val preUdfs = preUdfProjection.apply(currRow)
           val postUdfs = postUdfProjection.apply(currRow)
           val currCacheKey = cacheKeyProjection.apply(currRow)
 
-          val currUdf = {
+          val currUdf =
             // if cache contains the key, we just return the object
             if (cache.containsKey(currCacheKey)) {
               cache.get(currCacheKey)
@@ -244,7 +242,7 @@ object CachingIteratorGenerator {
               cache.put(currCacheKey, cUdf)
               cUdf
             }
-          }
+
           // return the pre + curr + post
           Row.fromSeq(preUdfs ++ currUdf ++ postUdfs)
         }

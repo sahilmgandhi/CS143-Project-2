@@ -105,8 +105,7 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
     var diskPartition: DiskPartition = null
     // Partition the input with the given keyGenerator and also return the iterator to the partition set
 
-    // @TODO: I think this works, but might not be correct!
-    var diskPartitionIterator = DiskHashedRelation(input, keyGenerator).getIterator()
+    val diskPartitionIterator = DiskHashedRelation(input, keyGenerator).getIterator()
 
     // generate caching iterator returns a function that takes a row and transforms it to another row
     var currCacheIterator: (Iterator[Row] => Iterator[Row]) = null
@@ -129,14 +128,7 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
         }
       }
 
-      def next() = {
-        if (currIterator.hasNext) {
-          currIterator.next()
-        }
-        else {
-          null
-        }
-      }
+      def next() = if (currIterator.hasNext) currIterator.next() else null
 
       /**
         * This fetches the next partition over which we will iterate or returns false if there are no more partitions

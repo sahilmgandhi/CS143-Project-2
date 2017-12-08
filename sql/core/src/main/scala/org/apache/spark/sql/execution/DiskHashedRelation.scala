@@ -155,12 +155,10 @@ private[sql] class DiskPartition(
     * also be closed.
     */
   def closeInput() = {
-    if (!writtenToDisk) {
+    if (!writtenToDisk && data.size() > 0) {
       // only if the data is of size larger than 0 do we want to write it to the disk and add that to the chunk sizes array
-      if (data.size() > 0) {
-        spillPartitionToDisk()
-        data.clear()
-      }
+      spillPartitionToDisk()
+      data.clear()
     }
     outStream.close()
     inputClosed = true
