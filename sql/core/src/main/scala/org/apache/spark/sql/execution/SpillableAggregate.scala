@@ -139,7 +139,7 @@ case class SpillableAggregate(
         * @return
         */
       private def aggregate(): Iterator[Row] = {
-        for (row <- data) {
+        data.foreach { row =>
           val projection = groupingProjection(row)
           var aggFunc = currentAggregationTable(projection)
           if (aggFunc == null) {
@@ -158,7 +158,7 @@ case class SpillableAggregate(
         }
 
         spills.foreach(_.closeInput()) // close all inputs                                    v get the second value of the tuple
-        AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2))(currentAggregationTable.iterator)
+        AggregateIteratorGenerator(resultExpression, List(aggregatorSchema) ++ namedGroups.map(t => t._2))(currentAggregationTable.iterator)
       }
 
       /**
@@ -166,9 +166,7 @@ case class SpillableAggregate(
         *
         * @return
         */
-      private def spillRecord(group: Row, row: Row) = {
-        spills(row.hashCode % numPartitions).insert(row)
-      }
+      private def spillRecord(group: Row, row: Row) = spills(group.hashCode % numPartitions).insert(row)
 
       /**
         * This method fetches the next records to aggregate from spilled partitions or returns false if we

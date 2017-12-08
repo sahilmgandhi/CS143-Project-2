@@ -273,9 +273,9 @@ object AggregateIteratorGenerator {
       def hasNext() = input.hasNext
 
       def next() = {
-        val (row, aggFunc) = input.next // Get the next row and aggregate function
-        val newRow = new GenericMutableRow(Array(aggFunc.eval()))  // create a new row with aggregate function
-        postAggregateProjection(new JoinedRow(newRow, row)) // concatenate the new row with the old
+        val inputNext = input.next // Get the next row and aggregate function
+        val newRow = new GenericMutableRow(Array(inputNext._2.eval()))  // create a new row with aggregate function
+        postAggregateProjection(new JoinedRow(newRow, inputNext._1)) // concatenate the new row with the old
       }
     }
   }
