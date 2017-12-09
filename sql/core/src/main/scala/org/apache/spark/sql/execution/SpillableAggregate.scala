@@ -71,7 +71,7 @@ case class SpillableAggregate(
   private[this] val aggregatorSchema: AttributeReference = aggregator.resultAttribute
 
   /** Creates a new aggregator instance.  */
-  private[this] def newAggregatorInstance(): AggregateFunction = aggregator.aggregate.newInstance()
+  private[this] def newAggregatorInstance(): AggregateFunction = aggregator.aggregate.newInstance
 
   /** Named attributes used to substitute grouping attributes in the final result. */
   private[this] val namedGroups = groupingExpressions.map {
@@ -144,21 +144,19 @@ case class SpillableAggregate(
           var aggFunc = currentAggregationTable(projection)
           if (aggFunc == null) {
             // Check if we'll run out of memory
-            if (CS143Utils.maybeSpill(currentAggregationTable, memorySize)) {
-              spillRecord(projection, row) // And if so, spill the data
-            } else {
+            if (CS143Utils.maybeSpill(currentAggregationTable, memorySize)) spillRecord(projection, row) // And if so, spill the data
+            else {
               aggFunc = newAggregatorInstance()
               currentAggregationTable.update(projection, aggFunc)
             }
           }
 
-          if (aggFunc != null) {
-            aggFunc.update(row)
-          }
+          if (aggFunc != null) aggFunc.update(row)
         }
 
-        spills.foreach(_.closeInput()) // close all inputs                                    v get the second value of the tuple
-        AggregateIteratorGenerator(resultExpression, List(aggregatorSchema) ++ namedGroups.map(t => t._2))(currentAggregationTable.iterator)
+        spills.foreach(_.closeInput()) // close all inputs
+        val inputSchema = List(aggregatorSchema).++(namedGroups.map(_._2)) // gets the second value in the tuple
+        AggregateIteratorGenerator(resultExpression, inputSchema)(currentAggregationTable.iterator)
       }
 
       /**
@@ -178,10 +176,7 @@ case class SpillableAggregate(
 //        data = spillsIterator.map(_.getData()).filter(!_.hasNext).toStream.headOption.orNull
 
         // data was drained, replenish it with spilled data
-        while (spillsIterator.hasNext && !data.hasNext) {
-          data = spillsIterator.next().getData()
-        }
-
+        while (spillsIterator.hasNext && !data.hasNext) data = spillsIterator.next().getData()
         val hadNext = data.hasNext // save value for return
         if (hadNext) {
           currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
